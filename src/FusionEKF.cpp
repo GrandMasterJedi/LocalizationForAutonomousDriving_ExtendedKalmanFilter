@@ -33,18 +33,27 @@ FusionEKF::FusionEKF() {
   // **DO:* Finish initializing the FusionEKF. * Set the process and measurement noises
   //
   //// Processes covariance
-  //ekf_.P_ = MatrixXd(4, 4);
-  //ekf_.P_ << 1, 0, 0, 0,
-		//	0, 1, 0, 0,
-		//	0, 0, 1000, 0,
-		//	0, 0, 0, 1000;
+	ekf_.P_ = MatrixXd(4, 4);
+	ekf_.F_ = MatrixXd(4, 4);
 
-  H_laser_ << 1.0, 0.0, 0.0, 0.0,
-              0.0, 1.0, 0.0, 0.0;
+	ekf_.P_ << 1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1000, 0,
+			0, 0, 0, 1000;
 
-  Hj_ << 1.0, 0.0, 0.0, 0.0,
-         1.0, 1.0, 0.0, 0.0,
-         1.0, 1.0, 1.0, 1.0;
+	ekf_.F_ << 1, 0, 1, 0,
+             0, 1, 0, 1,
+             0, 0, 1, 0,
+             0, 0, 0, 1;
+
+	// elf_.H_
+	H_laser_ << 1.0, 0.0, 0.0, 0.0,
+			  0.0, 1.0, 0.0, 0.0;
+
+  	// Jacobian init
+// 	Hj_ << 1.0, 1.0, 0.0, 0.0,
+//          1.0, 1.0, 0.0, 0.0,
+//          1.0, 1.0, 1.0, 1.0;
 
   
 }
@@ -76,13 +85,16 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &mp) {
 		const double phi = mp.raw_measurements_[1]; // Bearing - angle between rho and axis
 		const double rho_dot = mp.raw_measurements_[2]; // Radial Velocity - rho rate
 
-		double c1 =  rho * cos(phi) < 1e-6 ? 1e-6 : rho * cos(phi);
-		double c2 =  rho * sin(phi) < 1e-6 ? 1e-6 : rho * sin(phi);
-		
-		double v1 = rho_dot * cos(phi);
-  		double v2 = rho_dot * sin(phi);
+		double x =  rho * cos(phi);
+		//if (x < 0.0001) x =  0.0001;
 
-		ekf_.x_ << c1, c2, v1 , v2;
+		double y =  rho * sin(phi); 
+		//if (y < 0.0001) y = 0.0001;
+		
+		double vx = rho_dot * cos(phi);
+  		double vy = rho_dot * sin(phi);
+
+		ekf_.x_ << x, y, vx , vy;
 		
     }
     else if (mp.sensor_type_ == MeasurementPackage::LASER) {
@@ -108,17 +120,20 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &mp) {
    */
 
   
-  double dt = (mp.timestamp_ - previous_timestamp_) / 1e6;
+  double dt = (mp.timestamp_ - previous_timestamp_) / 1e6;  // in seconds
+//   double dt = (mp.timestamp_ - previous_timestamp_);
   previous_timestamp_ = mp.timestamp_;
+ 
+  if (dt > 1) dt = 0.5; 
+  if (dt<1e-9)  return;   // simultaneous measurement: no not predict
+  
+  cout << "dt = " << dt << endl;
 
-  if (dt<1e-9) { return; }  // simultaneous measurement: no not predict
 
   // State transition matrix update
-  ekf_.F_ = MatrixXd(4, 4);
-  ekf_.F_ << 1, 0, dt, 0,
-             0, 1, 0, dt,
-             0, 0, 1, 0,
-             0, 0, 0, 1;
+  ekf_.F_(0,2) = dt;
+  ekf_.F_(1,3) = dt;
+
 
   // Noise covariance matrix computation
   // Set suggested noise value
@@ -131,6 +146,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &mp) {
   
   double dt4_4 = dt4 / 4; // dt^4 / 4
   double dt3_2 = dt3 / 2; // dt^3 / 2
+  
   ekf_.Q_ = MatrixXd(4, 4);
   ekf_.Q_ << dt4_4*sig1,	0,				dt3_2 * sig1,	0,
 	         0,				dt4_4*sig2,		0,				dt3_2*sig2,

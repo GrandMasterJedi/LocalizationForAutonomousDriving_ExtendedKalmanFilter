@@ -1,6 +1,7 @@
 #include <iostream>
 #include "tools.h"
 
+using namespace std;
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using std::vector;
@@ -49,8 +50,14 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations, const vector<
 
 MatrixXd Tools::CalculateJacobian(const VectorXd& x_state) {
 
+	
 	// As implemented in Udacity lecture notes
 	MatrixXd Hj(3,4);
+	if ( x_state.size() != 4 ) {
+		cout << "ERROR - CalculateJacobian () - The state vector must have size 4." << endl;
+		return Hj;
+	}
+	
 	//recover state parameters
 	float px = x_state(0);
 	float py = x_state(1);
@@ -59,14 +66,17 @@ MatrixXd Tools::CalculateJacobian(const VectorXd& x_state) {
 
 	//pre-compute a set of terms to avoid repeated calculation
 	float c1 = px*px+py*py;
-	float c2 = sqrt(c1);
-	float c3 = (c1*c2);
-
-	//check division by zero
+  
+  	//check division by zero
 	if(fabs(c1) < 0.0001){
-		cout << "CalculateJacobian () - Error - Division by Zero" << endl;
-		return Hj;
+		cout << "Problem with CalculateJacobian () -  Division by Zero" << endl;
+        c1 = 0.01;
+		// return Hj;
 	}
+	float c2 = sqrt(c1);
+	float c3 = c1*c2;
+
+
 
 	//compute the Jacobian matrix
 	Hj << (px/c2), (py/c2), 0, 0,

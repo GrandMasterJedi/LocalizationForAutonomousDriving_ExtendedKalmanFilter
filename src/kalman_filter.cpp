@@ -1,5 +1,7 @@
 #include "kalman_filter.h"
+#include <iostream>
 
+using namespace std;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
@@ -54,9 +56,6 @@ void KalmanFilter::Update(const VectorXd &z) {
 	x_ = x_ + (K*y);
 	P_ = (I-K*H_) * P_;
 
-	
-	//UpdateEKF
-
 
 }
 
@@ -70,17 +69,39 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
 	  double vx = x_(2);
 	  double vy = x_(3);
 
-	  double rho = sqrt(px*px + py*py);
-	  double theta = atan2(py, px);
-	  double rho_dot = (px*vx + py*vy) / rho;
+	  // polar coordinates
+	  double rho = sqrt(px*px + py*py);  // radial coord from Cartesian 	  
+	  double theta = atan2(py, px);		// angular coord from Cartesian
+	  double rho_dot = (px*vx + py*vy) / rho; // rate of change
+ 
+	  if (rho < 0.0001) {
+        cout << "problem with distance rho = " << rho << endl;
+        rho_dot = 0;
+      }
+
+  	  //Check angle
+	  while ( theta > M_PI || theta < -M_PI ) {
+        cout << "problem with theta__ = " << theta << endl;   
+		if ( theta > M_PI ) {
+		  theta -= M_PI;
+		} else {
+		  theta += M_PI;
+		}
+	  }
+//   		while (theta < -M_PI)	theta += M_PI;
+//   		while (theta > M_PI) theta -= M_PI;
+
 	  VectorXd h = VectorXd(3);
 	  h << rho, theta, rho_dot;
 
-	  VectorXd y = z - h;
+  
 	  // VectorXd y = z - z_pred;
 	  // VectorXd z_pred = H_ * x_;
+	  VectorXd y = z - h;
 	  
+	  // Check prediction value
 	  while ( y(1) > M_PI || y(1) < -M_PI ) {
+        cout << "problem with theta predicted gap = " << y(1) << endl;   
 		if ( y(1) > M_PI ) {
 		  y(1) -= M_PI;
 		} else {
